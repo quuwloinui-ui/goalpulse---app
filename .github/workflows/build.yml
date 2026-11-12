@@ -21,23 +21,22 @@ jobs:
       - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
-          
-          # 1. إنشاء مجلد الأندرويد أولاً
           flutter create . --platforms=android
           
-          # 2. إجبار المشروع على استخدام نسخة مستقرة من المكتبة المسببة للمشكلة
-          echo -e "\ndependency_overrides:\n  package_info_plus: 8.0.0" >> pubspec.yaml
+          # 1. إجبار المكتبات على استخدام نسخ قديمة ومستقرة (لحل تعارض الـ web والـ Gradle)
+          echo -e "\ndependency_overrides:\n  package_info_plus: 5.0.1\n  share_plus: 7.2.2" >> pubspec.yaml
+          
           flutter pub get
           
-          # 3. إصلاح نسخة Kotlin
+          # 2. إصلاح نسخة Kotlin
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 4. إجبار التطبيق الأساسي على SDK 34
+          # 3. إجبار التطبيق الأساسي على SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 5. السماح باتصالات HTTP
+          # 4. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
