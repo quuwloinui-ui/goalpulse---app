@@ -22,23 +22,24 @@ jobs:
         run: |
           cd mobile
           
-          # 1. إنشاء مجلد الأندرويد
-          flutter create . --platforms=android
+          # 1. تنظيف المشروع لضمان عدم وجود ملفات قديمة متعارضة
+          flutter clean
           
-          # 2. تحميل المكتبات (لكي يتم إنشاء ملفاتها في الذاكرة)
+          # 2. إنشاء مجلد الأندرويد وتحميل المكتبات
+          flutter create . --platforms=android
           flutter pub get
           
-          # 3. إصلاح نسخة Kotlin للمشروع الأساسي
-          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
-          sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
+          # 3. تحديث نسخة Kotlin باستخدام perl (يتعامل مع علامات التنصيص المفردة والمزدوجة)
+          perl -pi -e "s/id ['\"]org.jetbrains.kotlin.android['\"] version ['\"][^'\"]*['\"]/id \"org.jetbrains.kotlin.android\" version \"1.9.22\"/g" android/settings.gradle
+          perl -pi -e "s/ext.kotlin_version\s*=\s*['\"][^'\"]*['\"]/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 4. إجبار التطبيق الأساسي على استخدام Android SDK 34
-          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
-          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
+          # 4. إجبار التطبيق الأساسي على Android SDK 34
+          perl -pi -e 's/compileSdk\s*=\s*flutter\.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
+          perl -pi -e 's/targetSdk\s*=\s*flutter\.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 5. الضربة القاضية: تعديل كل ملفات المكتبات في الذاكرة واستبدال المتغير الفارغ بالرقم 34
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} +
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} +
+          # 5. الضربة القاضية: تعديل كل مكتبات Flutter في الذاكرة لمنع خطأ substring
+          find ~/.pub-cache -name "build.gradle" -exec perl -pi -e 's/compileSdkVersion\s+flutter\.compileSdkVersion/compileSdkVersion 34/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec perl -pi -e 's/compileSdkVersion\s+[0-9]+/compileSdkVersion 34/g' {} +
 
           # 6. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
