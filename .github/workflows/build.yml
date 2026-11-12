@@ -24,17 +24,20 @@ jobs:
           flutter create . --platforms=android
           flutter pub get
           
-          # 1. تحديث نسخة Kotlin بذكاء (يبحث عن السطر ويستبدل أي نسخة قديمة)
-          sed -i '/org.jetbrains.kotlin.android/ s/version .*/version "1.9.22" apply false/' android/settings.gradle
+          # 1. إصلاح نسخة Kotlin للمشروع الأساسي
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
+          sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 2. تحديث Gradle Wrapper إلى الإصدار 8.4 ليتوافق مع الأدوات الجديدة
-          sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.4-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
-          
-          # 3. إجبار التطبيق على استخدام Android SDK 34
+          # 2. إجبار التطبيق الأساسي على Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 4. السماح باتصالات HTTP للسيرفر المحلي
+          # 3. الضربة القاضية: تعديل كل ملفات المكتبات في الذاكرة المؤقتة
+          find ~/.pub-cache/hosted/pub.dev -name "build.gradle" -exec sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' {} +
+          find ~/.pub-cache/hosted/pub.dev -name "build.gradle" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' {} +
+          find ~/.pub-cache/hosted/pub.dev -name "build.gradle" -exec sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' {} +
+
+          # 4. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
