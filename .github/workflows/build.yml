@@ -21,38 +21,23 @@ jobs:
       - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
+          
+          # 1. إنشاء مجلد الأندرويد أولاً
           flutter create . --platforms=android
+          
+          # 2. إجبار المشروع على استخدام نسخة مستقرة من المكتبة المسببة للمشكلة
+          echo -e "\ndependency_overrides:\n  package_info_plus: 8.0.0" >> pubspec.yaml
           flutter pub get
           
-          # 1. إصلاح نسخة Kotlin
+          # 3. إصلاح نسخة Kotlin
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 2. إجبار التطبيق الأساسي على SDK 34
+          # 4. إجبار التطبيق الأساسي على SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
-
-          # 3. الضربة القاضية: إجبار كل المكتبات على استخدام SDK 34
-          cat << 'EOF' >> android/build.gradle
-
-          subprojects {
-              afterEvaluate { project ->
-                  if (project.hasProperty('android')) {
-                      project.android {
-                          if (namespace == null) {
-                              namespace project.group
-                          }
-                          compileSdkVersion 34
-                          defaultConfig {
-                              targetSdkVersion 34
-                          }
-                      }
-                  }
-              }
-          }
-          EOF
           
-          # السماح باتصالات HTTP
+          # 5. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
