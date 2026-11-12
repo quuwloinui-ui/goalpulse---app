@@ -22,20 +22,27 @@ jobs:
         run: |
           cd mobile
           
-          # 1. مسح المجلد وإنشاء واحد نظيف
+          # 1. إنشاء مجلد أندرويد نظيف
           rm -rf android
           flutter create . --platforms=android
           flutter pub get
           
-          # 2. رفع نسخة Kotlin إلى 2.1.0 (لحل مشكلة مكتبة package_info_plus)
-          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "2.1.0"/g' android/settings.gradle
-          sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '2.1.0'/g" android/build.gradle
-          
-          # 3. رفع نسخة أدوات أندرويد (AGP) و Gradle لتدعم Kotlin الجديد
-          sed -i 's/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:8.3.0/g' android/build.gradle
+          # 2. تحديث نسخة Gradle إلى 8.7
           sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.7-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
           
-          # 4. إجبار التطبيق على استخدام Android SDK 34
+          # 3. تحديث نسخ Android SDK و Kotlin (باستخدام بايثون لضمان الدقة)
+          python3 -c "
+          import re
+          with open('android/settings.gradle', 'r') as f:
+              s = f.read()
+          s = re.sub(r'id\s+[\"']com\.android\.application[\"']\s+version\s+[\"'][^\"']+[\"']', 'id \"com.android.application\" version \"8.3.0\"', s)
+          s = re.sub(r'id\s+[\"']com\.android\.library[\"']\s+version\s+[\"'][^\"']+[\"']', 'id \"com.android.library\" version \"8.3.0\"', s)
+          s = re.sub(r'id\s+[\"']org\.jetbrains\.kotlin\.android[\"']\s+version\s+[\"'][^\"']+[\"']', 'id \"org.jetbrains.kotlin.android\" version \"2.1.0\"', s)
+          with open('android/settings.gradle', 'w') as f:
+              f.write(s)
+          "
+          
+          # 4. إجبار التطبيق على Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
