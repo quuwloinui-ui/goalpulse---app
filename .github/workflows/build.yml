@@ -21,23 +21,44 @@ jobs:
       - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
-          
-          # 1. إجبار المشروع على استخدام نسخة مستقرة من المكتبة المسببة للمشكلة (دون تعارض مع المكتبات الأخرى)
-          echo -e "\ndependency_overrides:\n  package_info_plus: 8.1.0" >> pubspec.yaml
-          
-          # 2. إنشاء مجلد الأندرويد وتحميل المكتبات
+          flutter clean
           flutter create . --platforms=android
           flutter pub get
           
-          # 3. إصلاح نسخة Kotlin
+          # 1. إصلاح نسخة Kotlin للمشروع
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 4. إجبار التطبيق الأساسي على استخدام Android SDK 34
+          # 2. إصلاح التطبيق الأساسي
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 5. السماح باتصالات HTTP
+          # 3. السكربت الجبار: مسح وتعديل كل المكتبات في الذاكرة باستخدام بايثون
+          cat << 'EOF' > fix_gradle.py
+          import os, re
+          pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dev')
+          if not os.path.exists(pub_cache):
+              pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dartlang.org')
+          for root, dirs, files in os.walk(pub_cache):
+              for file in files:
+                  if file == 'build.gradle':
+                      filepath = os.path.join(root, file)
+                      with open(filepath, 'r') as f:
+                          content = f.read()
+                      content = re.sub(r'compileSdkVersion\s+flutter\.compileSdkVersion', 'compileSdkVersion 34', content)
+                      content = re.sub(r'compileSdkVersion\s+[^ \n]+', 'compileSdkVersion 34', content)
+                      content = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk 34', content)
+                      content = re.sub(r'compileSdk\s*=\s*[^ \n]+', 'compileSdk 34', content)
+                      content = re.sub(r'targetSdkVersion\s+flutter\.targetSdkVersion', 'targetSdkVersion 34', content)
+                      content = re.sub(r'targetSdkVersion\s+[^ \n]+', 'targetSdkVersion 34', content)
+                      content = re.sub(r'targetSdk\s*=\s*flutter\.targetSdkVersion', 'targetSdk 34', content)
+                      content = re.sub(r'targetSdk\s*=\s*[^ \n]+', 'targetSdk 34', content)
+                      with open(filepath, 'w') as f:
+                          f.write(content)
+          EOF
+          python3 fix_gradle.py
+
+          # 4. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
