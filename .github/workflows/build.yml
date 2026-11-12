@@ -25,17 +25,19 @@ jobs:
           flutter create . --platforms=android
           flutter pub get
           
-          # 1. إصلاح نسخة Kotlin
+          # 1. إصلاح نسخة Kotlin للمشروع الأساسي
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 2. إجبار التطبيق الأساسي على SDK 34
+          # 2. إجبار التطبيق الأساسي على استخدام Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 3. الضربة القاضية: مسح أي سطر فيه compileSdkVersion في كل المكتبات ووضعه 34
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' {} +
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' {} +
+          # 3. الضربة القاضية: تغيير المتغيرات في كل المكتبات إلى نصوص "34"
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion "34"/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk "34"/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion "34"/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/targetSdk flutter.targetSdkVersion/targetSdk "34"/g' {} +
 
           # 4. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
