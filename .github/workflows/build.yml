@@ -21,44 +21,23 @@ jobs:
       - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
-          flutter clean
+          
+          # 1. إجبار المشروع على استخدام نسخة مستقرة من المكتبة (تحل مشكلة substring)
+          echo -e "\ndependency_overrides:\n  package_info_plus: 8.1.0" >> pubspec.yaml
+          
+          # 2. إنشاء مجلد الأندرويد وتحميل المكتبات
           flutter create . --platforms=android
           flutter pub get
           
-          # 1. إصلاح نسخة Kotlin للمشروع
+          # 3. إصلاح نسخة Kotlin
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 2. إصلاح التطبيق الأساسي
+          # 4. إجبار التطبيق الأساسي على Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 3. السكربت الجبار: مسح وتعديل كل المكتبات في الذاكرة باستخدام بايثون
-          cat << 'EOF' > fix_gradle.py
-          import os, re
-          pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dev')
-          if not os.path.exists(pub_cache):
-              pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dartlang.org')
-          for root, dirs, files in os.walk(pub_cache):
-              for file in files:
-                  if file == 'build.gradle':
-                      filepath = os.path.join(root, file)
-                      with open(filepath, 'r') as f:
-                          content = f.read()
-                      content = re.sub(r'compileSdkVersion\s+flutter\.compileSdkVersion', 'compileSdkVersion 34', content)
-                      content = re.sub(r'compileSdkVersion\s+[^ \n]+', 'compileSdkVersion 34', content)
-                      content = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk 34', content)
-                      content = re.sub(r'compileSdk\s*=\s*[^ \n]+', 'compileSdk 34', content)
-                      content = re.sub(r'targetSdkVersion\s+flutter\.targetSdkVersion', 'targetSdkVersion 34', content)
-                      content = re.sub(r'targetSdkVersion\s+[^ \n]+', 'targetSdkVersion 34', content)
-                      content = re.sub(r'targetSdk\s*=\s*flutter\.targetSdkVersion', 'targetSdk 34', content)
-                      content = re.sub(r'targetSdk\s*=\s*[^ \n]+', 'targetSdk 34', content)
-                      with open(filepath, 'w') as f:
-                          f.write(content)
-          EOF
-          python3 fix_gradle.py
-
-          # 4. السماح باتصالات HTTP
+          # 5. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
