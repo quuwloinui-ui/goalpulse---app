@@ -17,16 +17,31 @@ jobs:
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
-      - name: Generate Android Folder & Fix Manifest
+          
+      - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
           flutter create . --platforms=android
+          
+          # تحديث إعدادات Gradle لتدعم أحدث المكتبات
+          sed -i 's/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:8.1.0/g' android/build.gradle
+          sed -i 's/distributionUrl=.*/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-8.4-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+          
+          # إجبار التطبيق على استخدام Android SDK 34
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle
+          
+          # السماح باتصالات HTTP (للسيرفر المحلي)
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
+
       - name: Build APK
         run: |
           cd mobile
           flutter pub get
           flutter build apk --release
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
