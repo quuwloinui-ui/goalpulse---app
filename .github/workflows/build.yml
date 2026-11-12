@@ -23,21 +23,25 @@ jobs:
           cd mobile
           flutter create . --platforms=android
           
-          # تحديث إعدادات Gradle
+          # 1. تحديث إعدادات Gradle
           sed -i 's/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:8.1.0/g' android/build.gradle
           sed -i 's/distributionUrl=.*/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-8.4-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
           
-          # إجبار التطبيق على استخدام Android SDK 34 (دعم الصيغتين القديمة والجديدة)
+          # 2. إجبار التطبيق على استخدام Android SDK 34
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # إصلاح المكتبات التي تحتاج تحديث (package_info_plus)
+          # 3. تحديث إصدار Kotlin (لحل خطأ الصورة الحالي)
+          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/g' android/build.gradle
+          sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
+          
+          # 4. إصلاح المكتبات في الذاكرة المؤقتة
           grep -rl "flutter.compileSdkVersion" ~/.pub-cache/hosted/pub.dev/ | xargs sed -i 's/flutter.compileSdkVersion/34/g' || true
           grep -rl "flutter.targetSdkVersion" ~/.pub-cache/hosted/pub.dev/ | xargs sed -i 's/flutter.targetSdkVersion/34/g' || true
 
-          # السماح باتصالات HTTP
+          # 5. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
