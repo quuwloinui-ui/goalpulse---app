@@ -1,0 +1,155 @@
+// GoalPulse data model (PostgreSQL). Live match data is NOT stored here - it lives in Redis.
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["linux-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum StreamType {
+  HLS     // .m3u8 -> native player
+  WEBVIEW // embeddable page -> WebView player
+}
+
+enum BannerPlacement {
+  HOME_TOP
+  HOME_INLINE
+  MATCH_BOTTOM
+}
+
+enum AdminRole {
+  SUPER
+  EDITOR
+}
+
+/// Anonymous, device-based account.
+model User {
+  id            String         @id @default(uuid())
+  deviceId      String         @unique
+  email         String?        @unique // set when the user creates an account
+  passwordHash  String?
+  platform      Platform       @default(ANDROID)
+  fcmToken      String?
+  locale        String?
+  tzOffsetMin   Int?
+  appVersion    String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  lastSeenAt    DateTime       @default(now())
+  favoriteTeams FavoriteTeam[]
+  savedMatches  SavedMatch[]
+
+  @@index([lastSeenAt])
+}
+
+model FavoriteTeam {
+  id        String   @id @default(uuid())
+  userId    String
+  teamId    Int // provider team id
+  name      String
+  logo      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+}
+
+model SavedMatch {
+  id        String    @id @default(uuid())
+  userId    String
+  fixtureId Int // provider fixture id
+  homeName  String?
+  awayName  String?
+  kickoffAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fixtureId])
+  @@index([fixtureId])
+}
+
+/// Admin-curated stream source attached to a provider fixture id.
+model StreamLink {
+  id         Int        @id @default(autoincrement())
+  fixtureId  Int
+  matchLabel String? // "Arsenal vs Chelsea" - convenience for the admin table
+  title      String
+  url        String
+  type       StreamType @default(HLS)
+  quality    String?
+  language   String?
+  priority   Int        @default(100) // lower = shown first
+  isActive   Boolean    @default(true)
+  expiresAt  DateTime?
+  createdBy  String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([fixtureId, isActive])
+}
+
+model Admin {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(SUPER)
+  tokenVersion Int       @default(0) // bump to revoke every issued admin token
+  createdAt    DateTime  @default(now())
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean  @default(true)
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model Banner {
+  id        Int             @id @default(autoincrement())
+  title     String
+  imageUrl  String
+  targetUrl String?
+  placement BannerPlacement @default(HOME_TOP)
+  priority  Int             @default(100)
+  isActive  Boolean         @default(true)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([placement, isActive])
+}
+
+model NewsArticle {
+  id          Int      @id @default(autoincrement())
+  title       String
+  summary     String?
+  body        String?
+  imageUrl    String?
+  sourceUrl   String?
+  isPublished Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([isPublished, publishedAt])
+}
+
+model NotificationLog {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String
+  target    String // FCM topic, e.g. all | team_33 | match_123
+  status    String // SENT | DRY_RUN | FAILED
+  error     String?
+  sentBy    String?
+  createdAt DateTime @default(now())
+}

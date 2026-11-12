@@ -1,0 +1,22 @@
+# Manual run: Actions tab > "SportScore probe" > Run workflow. No keys needed.
+# Verifies the documented SportScore endpoints and which of the required leagues they really serve.
+name: SportScore probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node backend/scripts/sportscore-probe.js --out probe-out
+      - name: Publish the summary on the run page
+        if: always()
+        run: cat probe-out/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sportscore-probe
+          path: probe-out

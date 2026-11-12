@@ -1,0 +1,74 @@
+# Runs on every push. Gives you a real end-to-end check and a downloadable APK without a local setup:
+# Actions tab > latest run > Artifacts > goalpulse-apk.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: goalpulse, POSTGRES_PASSWORD: goalpulse, POSTGRES_DB: goalpulse }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U goalpulse" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql://goalpulse:goalpulse@localhost:5432/goalpulse?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-only-jwt-value-0123456789abcdef0123456789
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: CiOnly-Strong-Pass-9876
+      FOOTBALL_PROVIDER: mock
+      LIVE_POLL_INTERVAL_MS: "5000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx prisma validate
+      - run: npm test
+      - run: npx prisma db push --skip-generate
+      - name: Start the API
+        run: |
+          node src/server.js > server.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://localhost:4000/health > /dev/null && break; sleep 1; done
+      - name: End-to-end smoke test (REST, auth, roles, streams, push dry-run, sockets)
+        run: node scripts/smoke.js http://localhost:4000 --sockets
+      - name: Server log
+        if: failure()
+        run: cat server.log
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter create --org com.goalpulse --project-name goalpulse --platforms=android .
+      - run: python3 tool/patch_android.py
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      # Set a repository variable API_BASE_URL (Settings > Secrets and variables > Actions > Variables).
+      - run: flutter build apk --release --dart-define=API_BASE_URL=${{ vars.API_BASE_URL || 'https://api.example.invalid' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goalpulse-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk

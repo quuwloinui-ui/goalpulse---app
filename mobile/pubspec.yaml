@@ -1,0 +1,35 @@
+name: goalpulse
+description: Live football scores, fixtures, standings and stream sources.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1          # state management
+  dio: ^5.7.0                       # HTTP
+  socket_io_client: ^3.0.2          # live score updates
+  firebase_core: ^3.8.1             # push notifications (FCM)
+  firebase_messaging: ^15.1.6
+  flutter_local_notifications: ^18.0.1
+  shared_preferences: ^2.3.4
+  cached_network_image: ^3.4.1
+  intl: ">=0.19.0 <1.0.0"           # locale-aware date / time formatting
+  video_player: ^2.9.2              # HLS player
+  chewie: ^1.8.5
+  webview_flutter: ^4.10.0          # WebView stream embeds
+  url_launcher: ^6.3.1
+  share_plus: ^10.1.4               # share the app
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
