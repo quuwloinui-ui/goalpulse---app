@@ -21,22 +21,27 @@ jobs:
       - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
+          
+          # 1. مسح أي إعدادات سابقة (تنظيف)
+          sed -i '/dependency_overrides:/,$d' pubspec.yaml || true
+          
+          # 2. إنشاء المجلد وتحميل المكتبات الأساسية (بأحدث إصداراتها)
           flutter create . --platforms=android
-          
-          # 1. إجبار المكتبات على استخدام نسخ قديمة ومستقرة (لحل تعارض الـ web والـ Gradle)
-          echo -e "\ndependency_overrides:\n  package_info_plus: 5.0.1\n  share_plus: 7.2.2" >> pubspec.yaml
-          
           flutter pub get
           
-          # 2. إصلاح نسخة Kotlin
+          # 3. إصلاح نسخة Kotlin للمشروع الأساسي
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 3. إجبار التطبيق الأساسي على SDK 34
+          # 4. إجبار التطبيق الأساسي على استخدام Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 4. السماح باتصالات HTTP
+          # 5. الضربة القاضية: البحث داخل مجلدات المكتبات (Cache) واستبدال أي إشارة لكلمة flutter بـ 34
+          find ~/.pub-cache/hosted/pub.dev -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} +
+          find ~/.pub-cache/hosted/pub.dev -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} +
+          
+          # 6. السماح باتصالات HTTP للسيرفر المحلي
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
