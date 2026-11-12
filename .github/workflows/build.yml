@@ -21,23 +21,29 @@ jobs:
       - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
+          
+          # 1. إنشاء مجلد الأندرويد
           flutter create . --platforms=android
+          
+          # 2. إزالة أي تعديلات سابقة لملف pubspec
+          sed -i '/dependency_overrides:/,$d' pubspec.yaml || true
+          
+          # 3. تحميل المكتبات
           flutter pub get
           
-          # 1. إصلاح نسخة Kotlin للمشروع الأساسي
+          # 4. إصلاح نسخة Kotlin
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 2. إجبار التطبيق الأساسي على Android SDK 34
+          # 5. إجبار التطبيق الأساسي على SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 3. الضربة القاضية: تعديل كل ملفات المكتبات في الذاكرة المؤقتة
-          find ~/.pub-cache/hosted/pub.dev -name "build.gradle" -exec sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' {} +
-          find ~/.pub-cache/hosted/pub.dev -name "build.gradle" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' {} +
-          find ~/.pub-cache/hosted/pub.dev -name "build.gradle" -exec sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' {} +
-
-          # 4. السماح باتصالات HTTP
+          # 6. الحل الجذري: استبدال المتغير الفارغ بالنص "34" في جميع المكتبات لمنع خطأ substring
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/"34"/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/"34"/g' {} +
+          
+          # 7. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
