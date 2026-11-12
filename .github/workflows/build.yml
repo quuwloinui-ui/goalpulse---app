@@ -18,24 +18,25 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
           
-      - name: Prepare Project & Fix Dependencies
+      - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
           
-          # 1. مسح مجلد الأندرويد القديم بالكامل (لضمان النظافة)
+          # 1. مسح مجلد الأندرويد القديم وإنشاء واحد نظيف
           rm -rf android
-          
-          # 2. إجبار المكتبة على استخدام نسخة مستقرة (بدون تعديلات ملفات معقدة)
-          echo -e "\ndependency_overrides:\n  package_info_plus: 8.1.0" >> pubspec.yaml
-          
-          # 3. إنشاء مجلد أندرويد جديد ونظيف
           flutter create . --platforms=android
+          
+          # 2. تحميل المكتبات (لكي يتم إنشاء ملفاتها)
           flutter pub get
           
-          # 4. تعديل نسخة Kotlin باستخدام perl (يتعامل مع أي علامات تنصيص)
+          # 3. الضربة القاضية: استبدال المتغير المعطل في كل المكتبات فوراً
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} +
+
+          # 4. إصلاح نسخة Kotlin للمشروع
           perl -pi -e "s/id ['\"]org.jetbrains.kotlin.android['\"] version ['\"][^'\"]*['\"]/id \"org.jetbrains.kotlin.android\" version \"1.9.22\"/g" android/settings.gradle
           
-          # 5. إجبار التطبيق الأساسي على Android SDK 34 (بالصيغة الجديدة)
+          # 5. إجبار التطبيق الأساسي على استخدام Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
