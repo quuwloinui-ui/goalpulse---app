@@ -22,25 +22,28 @@ jobs:
         run: |
           cd mobile
           
-          # 1. مسح مجلد الأندرويد القديم وإنشاء واحد نظيف
+          # 1. مسح المجلد وإنشاء واحد نظيف
           rm -rf android
           flutter create . --platforms=android
-          
-          # 2. تحميل المكتبات (لكي يتم إنشاء ملفاتها)
           flutter pub get
           
-          # 3. الضربة القاضية: استبدال المتغير المعطل في كل المكتبات فوراً
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} +
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} +
-
-          # 4. إصلاح نسخة Kotlin للمشروع
-          perl -pi -e "s/id ['\"]org.jetbrains.kotlin.android['\"] version ['\"][^'\"]*['\"]/id \"org.jetbrains.kotlin.android\" version \"1.9.22\"/g" android/settings.gradle
+          # 2. رفع نسخة Kotlin إلى 2.1.0 (لحل مشكلة مكتبة package_info_plus)
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "2.1.0"/g' android/settings.gradle
+          sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '2.1.0'/g" android/build.gradle
           
-          # 5. إجبار التطبيق الأساسي على استخدام Android SDK 34
+          # 3. رفع نسخة أدوات أندرويد (AGP) و Gradle لتدعم Kotlin الجديد
+          sed -i 's/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:8.3.0/g' android/build.gradle
+          sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.7-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
+          
+          # 4. إجبار التطبيق على استخدام Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 6. السماح باتصالات HTTP للسيرفر المحلي
+          # 5. إصلاح خطأ compileSdkVersion في المكتبات
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} +
+
+          # 6. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
