@@ -25,25 +25,22 @@ jobs:
           # 1. إنشاء مجلد الأندرويد
           flutter create . --platforms=android
           
-          # 2. إزالة أي تعديلات سابقة لملف pubspec
-          sed -i '/dependency_overrides:/,$d' pubspec.yaml || true
-          
-          # 3. تحميل المكتبات
+          # 2. تحميل المكتبات (لكي يتم إنشاء ملفاتها في الذاكرة)
           flutter pub get
           
-          # 4. إصلاح نسخة Kotlin
+          # 3. إصلاح نسخة Kotlin للمشروع الأساسي
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 5. إجبار التطبيق الأساسي على SDK 34
+          # 4. إجبار التطبيق الأساسي على استخدام Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 6. الحل الجذري: استبدال المتغير الفارغ بالنص "34" في جميع المكتبات لمنع خطأ substring
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/"34"/g' {} +
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/"34"/g' {} +
-          
-          # 7. السماح باتصالات HTTP
+          # 5. الضربة القاضية: تعديل كل ملفات المكتبات في الذاكرة واستبدال المتغير الفارغ بالرقم 34
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} +
+
+          # 6. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
