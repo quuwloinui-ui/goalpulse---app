@@ -21,25 +21,23 @@ jobs:
       - name: Generate Android Folder & Fix Configurations
         run: |
           cd mobile
-          flutter clean
+          
+          # 1. إجبار المشروع على استخدام نسخة مستقرة من المكتبة المسببة للمشكلة (دون تعارض مع المكتبات الأخرى)
+          echo -e "\ndependency_overrides:\n  package_info_plus: 8.1.0" >> pubspec.yaml
+          
+          # 2. إنشاء مجلد الأندرويد وتحميل المكتبات
           flutter create . --platforms=android
           flutter pub get
           
-          # 1. إصلاح نسخة Kotlin للمشروع الأساسي
+          # 3. إصلاح نسخة Kotlin
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle
           sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.22'/g" android/build.gradle
           
-          # 2. إجبار التطبيق الأساسي على استخدام Android SDK 34
+          # 4. إجبار التطبيق الأساسي على استخدام Android SDK 34
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle
           
-          # 3. الضربة القاضية: تغيير المتغيرات في كل المكتبات إلى نصوص "34"
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion "34"/g' {} +
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk "34"/g' {} +
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion "34"/g' {} +
-          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/targetSdk flutter.targetSdkVersion/targetSdk "34"/g' {} +
-
-          # 4. السماح باتصالات HTTP
+          # 5. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
