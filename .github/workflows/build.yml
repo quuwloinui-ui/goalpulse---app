@@ -22,65 +22,71 @@ jobs:
         run: |
           cd mobile
           
-          # 1. تنظيف المشروع وإنشاء مجلد أندرويد نظيف
+          # 1. مسح المجلد وإنشاء واحد نظيف
           flutter clean
           rm -rf android
           flutter create . --platforms=android
-          
-          # 2. إجبار المشروع على استخدام النسخة المستقرة من المكتبة المسببة للمشكلة
-          python3 -c "
+
+          # 2. سكربت بايثون لتعديل pubspec.yaml وإجبار المكتبتين على نسخ مستقرة
+          cat << 'EOF' > fix_pubspec.py
           with open('pubspec.yaml', 'r') as f:
               lines = f.readlines()
-          override_idx = -1
-          for i, line in enumerate(lines):
+
+          new_lines = []
+          skip = False
+          for line in lines:
               if line.strip() == 'dependency_overrides:':
-                  override_idx = i
-                  break
-          if override_idx != -1:
-              lines.insert(override_idx + 1, '  package_info_plus: 8.3.0\n')
-          else:
-              lines.append('\ndependency_overrides:\n  package_info_plus: 8.3.0\n')
+                  skip = True
+                  continue
+              if skip and line.startswith('  '):
+                  continue
+              if skip and not line.startswith('  ') and line.strip() != '':
+                  skip = False
+              new_lines.append(line)
+
+          new_lines.append('\ndependency_overrides:\n')
+          new_lines.append('  package_info_plus: 8.3.0\n')
+          new_lines.append('  wakelock_plus: 1.3.0\n')
+
           with open('pubspec.yaml', 'w') as f:
-              f.writelines(lines)
-          "
+              f.writelines(new_lines)
+          EOF
           
+          python3 fix_pubspec.py
           flutter pub get
           
           # 3. تحديث نسخة Gradle
           sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.7-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
           
-          # 4. سكربت بايثون الآمن (لإصلاح كل شيء)
+          # 4. سكربت بايثون لإصلاح ملفات Gradle (SDK, NDK, R8, Desugaring, Kotlin)
           cat << 'EOF' > fix_build.py
           import os, glob, re
 
-          # تعديل settings.gradle
           with open('android/settings.gradle', 'r') as f:
               s = f.read()
-          s = re.sub(r'id\s+[\"\']com\.android\.application[\"\']\s+version\s+[\"\'][^\"\']+[\"\']', 'id \"com.android.application\" version \"8.3.0\"', s)
-          s = re.sub(r'id\s+[\"\']com\.android\.library[\"\']\s+version\s+[\"\'][^\"\']+[\"\']', 'id \"com.android.library\" version \"8.3.0\"', s)
-          s = re.sub(r'id\s+[\"\']org\.jetbrains\.kotlin\.android[\"\']\s+version\s+[\"\'][^\"\']+[\"\']', 'id \"org.jetbrains.kotlin.android\" version \"1.9.24\"', s)
+          s = re.sub(r'id\s+["\']com\.android\.application["\']\s+version\s+["\'][^"\']+["\']', 'id "com.android.application" version "8.3.0"', s)
+          s = re.sub(r'id\s+["\']com\.android\.library["\']\s+version\s+["\'][^"\']+["\']', 'id "com.android.library" version "8.3.0"', s)
+          s = re.sub(r'id\s+["\']org\.jetbrains\.kotlin\.android["\']\s+version\s+["\'][^"\']+["\']', 'id "org.jetbrains.kotlin.android" version "1.9.24"', s)
           with open('android/settings.gradle', 'w') as f:
               f.write(s)
 
-          # تعديل build.gradle
           with open('android/build.gradle', 'r') as f:
               b = f.read()
-          b = re.sub(r'ext\.kotlin_version\s*=\s*[\"\'][^\"\']+[\"\']', 'ext.kotlin_version = \"1.9.24\"', b)
+          b = re.sub(r'ext\.kotlin_version\s*=\s*[\'"][^\'"]*[\'"]', 'ext.kotlin_version = "1.9.24"', b)
           with open('android/build.gradle', 'w') as f:
               f.write(b)
 
-          # تعديل app/build.gradle
           with open('android/app/build.gradle', 'r') as f:
               app = f.read()
 
           app = app.replace('flutter.compileSdkVersion', '34')
           app = app.replace('flutter.targetSdkVersion', '34')
-          app = app.replace('flutter.ndkVersion', '\"25.1.8937393\"')
+          app = app.replace('flutter.ndkVersion', '"25.1.8937393"')
 
           if 'coreLibraryDesugaringEnabled' not in app:
               app = app.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true')
           if 'desugar_jdk_libs' not in app:
-              app += '\n\ndependencies {\n    coreLibraryDesugaring \"com.android.tools:desugar_jdk_libs:2.0.4\"\n}\n'
+              app += '\n\ndependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"\n}\n'
 
           if 'minifyEnabled false' not in app:
               app = app.replace('signingConfig = signingConfigs.debug', 'signingConfig = signingConfigs.debug\n            minifyEnabled false\n            shrinkResources false')
@@ -89,7 +95,6 @@ jobs:
           with open('android/app/build.gradle', 'w') as f:
               f.write(app)
 
-          # إصلاح المكتبات في الذاكرة
           pub_cache = os.path.expanduser('~/.pub-cache')
           for filepath in glob.glob(f'{pub_cache}/**/build.gradle', recursive=True):
               try:
