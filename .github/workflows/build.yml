@@ -30,7 +30,7 @@ jobs:
           # 2. تحديث نسخة Gradle
           sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.7-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
           
-          # 3. استخدام سكربت بايثون آمن تماماً (بدون Regex معقد لتجنب دمج الأسطر)
+          # 3. سكربت بايثون الآمن (لإصلاح كل شيء)
           cat << 'EOF' > fix_build.py
           import os, glob, re
 
@@ -50,7 +50,7 @@ jobs:
           with open('android/build.gradle', 'w') as f:
               f.write(b)
 
-          # تعديل app/build.gradle باستخدام الاستبدال المباشر (آمن 100%)
+          # تعديل app/build.gradle
           with open('android/app/build.gradle', 'r') as f:
               app = f.read()
 
@@ -58,13 +58,14 @@ jobs:
           app = app.replace('flutter.targetSdkVersion', '34')
           app = app.replace('flutter.ndkVersion', '"25.1.8937393"')
 
-          # إضافة Desugaring للإشعارات
-          if 'coreLibraryDesugaringEnabled' not in app:
+          if 'coreLibraryDesugaringEnabled true' not in app:
               app = app.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true')
-          if 'coreLibraryDesugaring' not in app:
-              app = app.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"')
 
-          # تعطيل R8 (لمنع انهيار البناء)
+          # إضافة مكتبة Desugaring في نهاية الملف (لضمان الإضافة دائماً)
+          if 'desugar_jdk_libs' not in app:
+              app += '\n\ndependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"\n}\n'
+
+          # تعطيل R8
           if 'minifyEnabled false' not in app:
               app = app.replace('signingConfig = signingConfigs.debug', 'signingConfig = signingConfigs.debug\n            minifyEnabled false\n            shrinkResources false')
               app = app.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.debug\n            minifyEnabled false\n            shrinkResources false')
