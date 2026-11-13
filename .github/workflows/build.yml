@@ -27,14 +27,14 @@ jobs:
           flutter create . --platforms=android
           flutter pub get
           
-          # 2. تحديث نسخة Gradle إلى 8.7
+          # 2. تحديث نسخة Gradle
           sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.7-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
           
-          # 3. إعداد سكربت بايثون لتعديل كل الإعدادات المعقدة دفعة واحدة
-          cat << 'EOF' > fix_gradle.py
-          import re, os, glob
+          # 3. استخدام سكربت بايثون آمن تماماً (بدون Regex معقد لتجنب دمج الأسطر)
+          cat << 'EOF' > fix_build.py
+          import os, glob, re
 
-          # 1. تعديل settings.gradle (تحديث Kotlin و AGP)
+          # تعديل settings.gradle
           with open('android/settings.gradle', 'r') as f:
               s = f.read()
           s = re.sub(r'id\s+["\']com\.android\.application["\']\s+version\s+["\'][^"\']+["\']', 'id "com.android.application" version "8.3.0"', s)
@@ -43,46 +43,43 @@ jobs:
           with open('android/settings.gradle', 'w') as f:
               f.write(s)
 
-          # 2. تعديل build.gradle
+          # تعديل build.gradle
           with open('android/build.gradle', 'r') as f:
               b = f.read()
           b = re.sub(r'ext\.kotlin_version\s*=\s*[\'"][^\'"]*[\'"]', 'ext.kotlin_version = "1.9.24"', b)
           with open('android/build.gradle', 'w') as f:
               f.write(b)
 
-          # 3. تعديل app/build.gradle (NDK، SDK، Desugaring، وتخطي ضغط R8)
+          # تعديل app/build.gradle باستخدام الاستبدال المباشر (آمن 100%)
           with open('android/app/build.gradle', 'r') as f:
               app = f.read()
 
-          # إضافة NDK
-          app = re.sub(r'android\s*{', 'android {\n    ndkVersion = "25.1.8937393"', app)
-
-          # إعداد SDK 34
-          app = re.sub(r'compileSdkVersion\s+[a-zA-Z0-9\.]+', 'compileSdkVersion 34', app)
-          app = re.sub(r'compileSdk\s*=\s*[a-zA-Z0-9\.]+', 'compileSdk = 34', app)
-          app = re.sub(r'targetSdkVersion\s+[a-zA-Z0-9\.]+', 'targetSdkVersion 34', app)
-          app = re.sub(r'targetSdk\s*=\s*[a-zA-Z0-9\.]+', 'targetSdk = 34', app)
+          app = app.replace('flutter.compileSdkVersion', '34')
+          app = app.replace('flutter.targetSdkVersion', '34')
+          app = app.replace('flutter.ndkVersion', '"25.1.8937393"')
 
           # إضافة Desugaring للإشعارات
-          app = re.sub(r'compileOptions\s*{', 'compileOptions {\n        coreLibraryDesugaringEnabled true', app)
-          app = re.sub(r'dependencies\s*{', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"', app)
+          if 'coreLibraryDesugaringEnabled' not in app:
+              app = app.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true')
+          if 'coreLibraryDesugaring' not in app:
+              app = app.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"')
 
-          # تعطيل R8 (مهم جداً لتجنب انهيار البناء في المرحلة الأخيرة)
-          app = re.sub(r'release\s*{', 'release {\n            minifyEnabled false\n            shrinkResources false', app)
+          # تعطيل R8 (لمنع انهيار البناء)
+          if 'minifyEnabled false' not in app:
+              app = app.replace('signingConfig = signingConfigs.debug', 'signingConfig = signingConfigs.debug\n            minifyEnabled false\n            shrinkResources false')
+              app = app.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.debug\n            minifyEnabled false\n            shrinkResources false')
 
           with open('android/app/build.gradle', 'w') as f:
               f.write(app)
 
-          # 4. إصلاح كل مكتبات Flutter لحل مشكلة substring
+          # إصلاح المكتبات في الذاكرة
           pub_cache = os.path.expanduser('~/.pub-cache')
           for filepath in glob.glob(f'{pub_cache}/**/build.gradle', recursive=True):
               try:
                   with open(filepath, 'r') as f:
                       content = f.read()
-                  content = re.sub(r'compileSdkVersion\s+flutter\.compileSdkVersion', 'compileSdkVersion 34', content)
-                  content = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk = 34', content)
-                  content = re.sub(r'targetSdkVersion\s+flutter\.targetSdkVersion', 'targetSdkVersion 34', content)
-                  content = re.sub(r'targetSdk\s*=\s*flutter\.targetSdkVersion', 'targetSdk = 34', content)
+                  content = content.replace('flutter.compileSdkVersion', '34')
+                  content = content.replace('flutter.targetSdkVersion', '34')
                   with open(filepath, 'w') as f:
                       f.write(content)
               except Exception:
@@ -90,7 +87,7 @@ jobs:
           EOF
 
           # 4. تشغيل السكربت
-          python3 fix_gradle.py
+          python3 fix_build.py
           
           # 5. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
