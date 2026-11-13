@@ -30,60 +30,23 @@ jobs:
           # 2. تحديث نسخة Gradle إلى 8.7
           sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.7-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
           
-          # 3. كتابة سكربت بايثون بشكل آمن لتعديل الإعدادات المعقدة
-          cat << 'EOF' > fix_gradle.py
-          import os, re, glob
-
-          # تعديل settings.gradle
-          if os.path.exists('android/settings.gradle'):
-              with open('android/settings.gradle', 'r') as f:
-                  s = f.read()
-              s = re.sub(r'id\s+["\']com\.android\.application["\']\s+version\s+["\'][^"\']+["\']', 'id "com.android.application" version "8.3.0"', s)
-              s = re.sub(r'id\s+["\']com\.android\.library["\']\s+version\s+["\'][^"\']+["\']', 'id "com.android.library" version "8.3.0"', s)
-              s = re.sub(r'id\s+["\']org\.jetbrains\.kotlin\.android["\']\s+version\s+["\'][^"\']+["\']', 'id "org.jetbrains.kotlin.android" version "2.1.0"', s)
-              with open('android/settings.gradle', 'w') as f:
-                  f.write(s)
-
-          # تعديل build.gradle
-          if os.path.exists('android/build.gradle'):
-              with open('android/build.gradle', 'r') as f:
-                  b = f.read()
-              b = re.sub(r'ext\.kotlin_version\s*=\s*[\'"][^\'"]*[\'"]', 'ext.kotlin_version = "2.1.0"', b)
-              b = re.sub(r'com\.android\.tools\.build:gradle:[^\'\"]+', 'com.android.tools.build:gradle:8.3.0', b)
-              with open('android/build.gradle', 'w') as f:
-                  f.write(b)
-
-          # تعديل app/build.gradle
-          if os.path.exists('android/app/build.gradle'):
-              with open('android/app/build.gradle', 'r') as f:
-                  app = f.read()
-              app = re.sub(r'compileSdkVersion\s+[a-zA-Z0-9\.]+', 'compileSdkVersion 34', app)
-              app = re.sub(r'compileSdk\s*=\s*[a-zA-Z0-9\.]+', 'compileSdk = 34', app)
-              app = re.sub(r'targetSdkVersion\s+[a-zA-Z0-9\.]+', 'targetSdkVersion 34', app)
-              app = re.sub(r'targetSdk\s*=\s*[a-zA-Z0-9\.]+', 'targetSdk = 34', app)
-              with open('android/app/build.gradle', 'w') as f:
-                  f.write(app)
-
-          # تعديل كل مكتبات Flutter لحل مشكلة substring
-          pub_cache = os.path.expanduser('~/.pub-cache')
-          for filepath in glob.glob(f'{pub_cache}/**/build.gradle', recursive=True):
-              try:
-                  with open(filepath, 'r') as f:
-                      content = f.read()
-                  content = re.sub(r'compileSdkVersion\s+flutter\.compileSdkVersion', 'compileSdkVersion 34', content)
-                  content = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk = 34', content)
-                  content = re.sub(r'targetSdkVersion\s+flutter\.targetSdkVersion', 'targetSdkVersion 34', content)
-                  content = re.sub(r'targetSdk\s*=\s*flutter\.targetSdkVersion', 'targetSdk = 34', content)
-                  with open(filepath, 'w') as f:
-                      f.write(content)
-              except Exception:
-                  pass
-          EOF
+          # 3. تعديل settings.gradle (تحديث Kotlin و AGP)
+          sed -i 's/id "com.android.application" version "[^"]*"/id "com.android.application" version "8.3.0"/g' android/settings.gradle
+          sed -i 's/id "com.android.library" version "[^"]*"/id "com.android.library" version "8.3.0"/g' android/settings.gradle
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "2.1.0"/g' android/settings.gradle
           
-          # 4. تشغيل السكربت
-          python3 fix_gradle.py
+          # 4. تعديل build.gradle
+          sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '2.1.0'/g" android/build.gradle
           
-          # 5. السماح باتصالات HTTP
+          # 5. إجبار التطبيق الأساسي على SDK 34 (إزالة أي شيء في نهاية السطر)
+          sed -i 's/compileSdk .*/compileSdk = 34/g' android/app/build.gradle
+          sed -i 's/targetSdk .*/targetSdk = 34/g' android/app/build.gradle
+          
+          # 6. إصلاح خطأ compileSdkVersion في المكتبات
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} +
+          find ~/.pub-cache -name "build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} +
+
+          # 7. السماح باتصالات HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
